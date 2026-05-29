@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>סקירת קטלוג — שכבת הערות</title>
+  <style>
+    :root {
+      --ohad: #d6336c;      /* הערות של אוהד */
+      --sagi: #1c7ed6;      /* הערות של שגיא */
+      --bg: #f4f4f6;
+      --bar: #1f2433;
+      --bar-text: #f4f4f6;
+      --done: #2f9e44;
+      --shadow: 0 4px 14px rgba(0,0,0,.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Segoe UI", "Heebo", Arial, sans-serif; background: var(--bg); }
+    body { padding-top: 96px; }
+
+    /* ===== סרגל עליון ===== */
+    #bar {
+      position: fixed; top: 0; right: 0; left: 0; z-index: 1000;
+      background: var(--bar); color: var(--bar-text);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 8px 12px; box-shadow: var(--shadow);
+    }
+    #bar .group { display: flex; align-items: center; gap: 6px; padding: 0 8px; border-left: 1px solid rgba(255,255,255,.15); }
+    #bar .group:last-child { border-left: none; }
+    #bar .title { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
+    #bar .title small { display:block; font-weight:400; opacity:.6; font-size:11px; }
+    .btn {
+      background: #2b3142; color: var(--bar-text); border: 1px solid #3a4055;
+      border-radius: 8px; padding: 7px 11px; cursor: pointer; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 6px; user-select: none;
+    }
+    .btn:hover { background: #353c52; }
+    .btn.active { background: #ffd43b; color: #1f2433; border-color: #ffd43b; font-weight: 700; }
+    .btn.ghost { background: transparent; }
+    select, input[type=text], input[type=number] {
+      background: #2b3142; color: var(--bar-text); border: 1px solid #3a4055;
+      border-radius: 8px; padding: 6px 8px; font-size: 13px;
+    }
+    input[type=number] { width: 84px; }
+    #urlInput { width: 280px; max-width: 40vw; }
+    .who { display:inline-flex; align-items:center; gap:6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .pill { font-size: 12px; opacity: .8; }
+
+    /* ===== אזור הקטלוג + שכבת ההערות ===== */
+    #stage { position: relative; margin: 0 auto; width: 100%; max-width: 1280px; }
+    #frameWrap { position: relative; width: 100%; background: #fff; box-shadow: var(--shadow); }
+    #catalog { width: 100%; height: 100%; border: 0; display: block; }
+    #overlay { position: absolute; inset: 0; }
+    #overlay.tool-active { cursor: crosshair; }
+    /* כשאין כלי פעיל — השכבה שקופה ללחיצות כדי שאפשר לגלול את הקטלוג */
+    #overlay.passthrough { pointer-events: none; }
+    #overlay.passthrough .ann { pointer-events: auto; } /* אבל ההערות עצמן עדיין לחיצות */
+
+    svg#wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    svg#wires .wire { pointer-events: stroke; cursor: pointer; }
+
+    /* פתק הערה */
+    .note {
+      position: absolute; min-width: 150px; max-width: 240px;
+      background: #fff8d6; border: 1px solid #e6d77a; border-top: 5px solid var(--ohad);
+      border-radius: 8px; box-shadow: var(--shadow); font-size: 13px; color: #2a2a2a;
+    }
+    .note.sagi { border-top-color: var(--sagi); }
+    .note .head { display:flex; align-items:center; justify-content:space-between; padding: 4px 8px; cursor: move; }
+    .note .head .author { font-weight: 700; font-size: 11px; }
+    .note .body textarea {
+      width: 100%; border: 0; background: transparent; resize: vertical; min-height: 46px;
+      font-family: inherit; font-size: 13px; padding: 4px 8px; outline: none;
+    }
+    .note .tag { margin: 0 8px 6px; font-size: 11px; }
+    .note .replies { border-top: 1px dashed #d9cf86; margin: 0 8px; padding: 4px 0; }
+    .note .reply { font-size: 12px; padding: 2px 0; }
+    .note .reply b { font-size: 11px; }
+    .note .foot { display:flex; gap: 6px; padding: 4px 8px; border-top: 1px solid rgba(0,0,0,.08); }
+    .note .foot button { font-size: 11px; border: 0; background: #eee; border-radius: 6px; padding: 3px 7px; cursor: pointer; }
+    .note .foot button.done-btn.on { background: var(--done); color: #fff; }
+    .note.done { opacity: .55; }
+    .note.done .body textarea { text-decoration: line-through; }
+
+    /* תיבת אזור — לסימון "תזיז את הבלוק הזה" */
+    .region {
+      position: absolute; border: 2.5px dashed var(--ohad); border-radius: 6px;
+      background: rgba(214,51,108,.06);
+    }
+    .region.sagi { border-color: var(--sagi); background: rgba(28,126,214,.06); }
+    .region .label {
+      position: absolute; top: -12px; right: 8px; background: var(--ohad); color: #fff;
+      font-size: 11px; padding: 2px 7px; border-radius: 6px; cursor: move; white-space: nowrap;
+    }
+    .region.sagi .label { background: var(--sagi); }
+    .region .resize { position: absolute; bottom: -7px; left: -7px; width: 14px; height: 14px; background:#fff; border:2px solid #555; border-radius: 50%; cursor: nesw-resize; }
+    .region.done { opacity: .5; }
+
+    /* נקודת אחיזה לקצה חץ/קו */
+    .handle { position: absolute; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; border: 2px solid #555; cursor: grab; }
+
+    .ann.selected { outline: 2px solid #ffd43b; outline-offset: 2px; }
+
+    #empty { text-align:center; color:#888; padding: 60px 20px; }
+    #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background:#222; color:#fff; padding:10px 16px; border-radius:10px; opacity:0; transition:.25s; z-index:2000; box-shadow:var(--shadow); }
+    #toast.show { opacity: 1; }
+    .hint { font-size: 12px; opacity:.7; }
+    @media (max-width: 760px){ #urlInput{ width:160px; } body{ padding-top:140px; } }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <div class="group title">סקירת קטלוג <small>שכבת הערות — לא נראית ללקוחות</small></div>
+
+    <div class="group" id="tools">
+      <button class="btn" data-tool="select" title="גלילה ובחירה (Esc)">🖐️ ניווט</button>
+      <button class="btn" data-tool="note" title="פתק הערה">📝 הערה</button>
+      <button class="btn" data-tool="arrow" title="חץ — גרור מנקודה לנקודה">➤ חץ</button>
+      <button class="btn" data-tool="line" title="קו">／ קו</button>
+      <button class="btn" data-tool="region" title="סמן בלוק/תמונה (כוונה להזזה)">▭ בלוק</button>
+    </div>
+
+    <div class="group">
+      <span class="pill">עורך:</span>
+      <select id="author">
+        <option value="ohad">אוהד</option>
+        <option value="sagi">שגיא</option>
+      </select>
+      <span class="dot" id="authorDot"></span>
+    </div>
+
+    <div class="group">
+      <label class="pill"><input type="checkbox" id="hideDone" /> הסתר שבוצעו</label>
+    </div>
+
+    <div class="group">
+      <span class="pill">קטלוג:</span>
+      <input type="text" id="urlInput" value="https://gaya-catalog-beige.vercel.app/gaya-catalog" />
+      <button class="btn" id="loadBtn">טען</button>
+    </div>
+
+    <div class="group">
+      <span class="pill">גובה תצוגה:</span>
+      <input type="number" id="frameH" value="3200" step="200" min="600" title="גובה הקטלוג בפיקסלים — כוונן כדי שכל העמוד ייכנס" />
+    </div>
+
+    <div class="group">
+      <button class="btn" id="exportBtn">⬇️ ייצוא</button>
+      <button class="btn" id="importBtn">⬆️ ייבוא</button>
+      <input type="file" id="importFile" accept="application/json" hidden />
+      <span class="hint" id="status">נשמר אוטומטית</span>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="frameWrap">
+      <iframe id="catalog" referrerpolicy="no-referrer"></iframe>
+      <div id="overlay" class="passthrough">
+        <svg id="wires"></svg>
+      </div>
+    </div>
+    <div id="empty" hidden></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="review.js"></script>
+</body>
+</html>
