@@ -16,6 +16,7 @@
     author: "ohad",
     hideDone: false,
     catalogUrl: "",
+    zoom: 1,           // מקדם הקטנה כדי שכל הקטלוג ייכנס למסך
     items: []          // כל ההערות/הסימונים
   };
 
@@ -119,22 +120,54 @@
     persist();
   }
 
+  var DESKTOP_W = 1280;        // רוחב "דסקטופ" שבו מצויר הקטלוג
+  var clip = document.getElementById("clip");
+
+  function applyLayout() {
+    var h = parseInt($("#frameH").value, 10) || 5200;
+    // מצייר את הקטלוג ברוחב דסקטופ מלא, ואז מקטין כדי שייכנס למסך
+    frameWrap.style.width = DESKTOP_W + "px";
+    frameWrap.style.height = h + "px";
+    frameWrap.style.transform = "scale(" + state.zoom + ")";
+    // clip מקבל את המידות אחרי ההקטנה — כך אין רווח לבן
+    clip.style.width = (DESKTOP_W * state.zoom) + "px";
+    clip.style.height = (h * state.zoom) + "px";
+    var lbl = $("#zoomLabel"); if (lbl) lbl.textContent = Math.round(state.zoom * 100) + "%";
+  }
+
+  function fitToScreen() {
+    var avail = window.innerWidth - 40;            // שוליים קטנים
+    state.zoom = Math.min(1, avail / DESKTOP_W);
+    applyLayout(); renderAll();
+  }
+
+  function setZoom(z) {
+    state.zoom = Math.max(0.3, Math.min(1.5, z));
+    applyLayout(); renderAll();
+  }
+
   function setFrameHeight(px) {
-    frameWrap.style.height = px + "px";
+    applyLayout();
   }
 
   // ============================================================
   //  קואורדינטות — שומרים באחוזים כדי שהסימונים יישארו במקום
   //  גם כשגודל החלון משתנה
   // ============================================================
+  // pxToPct: ממיר קואורדינטות עכבר (מסך) לאחוזים. getBoundingClientRect
+  // מחזיר מידות *אחרי* ההקטנה — בדיוק מה שצריך מול מיקום העכבר.
   function pxToPct(x, y) {
     var r = overlay.getBoundingClientRect();
     return { x: (x - r.left) / r.width * 100, y: (y - r.top) / r.height * 100 };
   }
+  // pctToPx: ממיר אחוזים לפיקסלים *פנימיים* (לא מוקטנים), כי הסימונים יושבים
+  // בתוך האלמנט שעליו מופעל ה-transform. offsetWidth מחזיר את הגודל לפני ההקטנה.
   function pctToPx(xPct, yPct) {
-    var r = overlay.getBoundingClientRect();
-    return { x: xPct / 100 * r.width, y: yPct / 100 * r.height };
+    var w = overlay.offsetWidth, h = overlay.offsetHeight;
+    return { x: xPct / 100 * w, y: yPct / 100 * h };
   }
+  // מקדם להמרת תזוזת עכבר (מסך) לתזוזה פנימית בגרירה
+  function dragScale() { return state.zoom || 1; }
 
   // ============================================================
   //  יצירת פריטים
@@ -253,14 +286,14 @@
 
   function renderRegion(it) {
     var p = pctToPx(it.x, it.y);
-    var r = overlay.getBoundingClientRect();
+    var iw = overlay.offsetWidth, ih = overlay.offsetHeight;
     var el = document.createElement("div");
     el.className = "region ann" + (it.author === "sagi" ? " sagi" : "") + (it.done ? " done" : "");
     el.dataset.id = it.id;
     el.style.left = p.x + "px";
     el.style.top = p.y + "px";
-    el.style.width = (it.w / 100 * r.width) + "px";
-    el.style.height = (it.h / 100 * r.height) + "px";
+    el.style.width = (it.w / 100 * iw) + "px";
+    el.style.height = (it.h / 100 * ih) + "px";
     el.innerHTML =
       '<div class="label">' + escapeHtml(it.label || "") + '</div>' +
       '<div class="resize"></div>';
@@ -282,7 +315,8 @@
       persist();
     });
 
-    // גרירת התיבה (מהתווית)
+    // גרירת התיבה (מהתווית). rr.width הוא רוחב *אחרי* הקטנה, ו-dx הוא תזוזת
+    // עכבר על המסך — היחס ביניהם נכון לאחוזים.
     makeDraggable(label, function (dx, dy) {
       var rr = overlay.getBoundingClientRect();
       it.x += dx / rr.width * 100; it.y += dy / rr.height * 100;
@@ -293,10 +327,11 @@
     // שינוי גודל
     makeDraggable($(".resize", el), function (dx, dy) {
       var rr = overlay.getBoundingClientRect();
+      var iw = overlay.offsetWidth, ih = overlay.offsetHeight;
       it.w = Math.max(4, it.w + dx / rr.width * 100);
       it.h = Math.max(4, it.h + dy / rr.height * 100);
-      el.style.width = (it.w / 100 * rr.width) + "px";
-      el.style.height = (it.h / 100 * rr.height) + "px";
+      el.style.width = (it.w / 100 * iw) + "px";
+      el.style.height = (it.h / 100 * ih) + "px";
     }, persist);
   }
 
@@ -418,10 +453,11 @@
       draft.x2 = cur.x; draft.y2 = cur.y;
       if (draft.tool === "region") {
         var ax = Math.min(draft.x1, cur.x), ay = Math.min(draft.y1, cur.y);
-        var p = pctToPx(ax, ay), r = overlay.getBoundingClientRect();
+        var p = pctToPx(ax, ay);
+        var iw = overlay.offsetWidth, ih = overlay.offsetHeight;
         draft.el.style.left = p.x + "px"; draft.el.style.top = p.y + "px";
-        draft.el.style.width = Math.abs(cur.x - draft.x1) / 100 * r.width + "px";
-        draft.el.style.height = Math.abs(cur.y - draft.y1) / 100 * r.height + "px";
+        draft.el.style.width = Math.abs(cur.x - draft.x1) / 100 * iw + "px";
+        draft.el.style.height = Math.abs(cur.y - draft.y1) / 100 * ih + "px";
       } else {
         var b = pctToPx(cur.x, cur.y);
         draft.line.setAttribute("x2", b.x); draft.line.setAttribute("y2", b.y);
@@ -470,10 +506,12 @@
       if (u) loadCatalog(u);
     });
 
-    $("#frameH").addEventListener("change", function (e) {
-      var h = parseInt(e.target.value, 10) || 3200;
-      setFrameHeight(h); renderAll();
-    });
+    $("#frameH").addEventListener("change", function () { applyLayout(); renderAll(); });
+
+    // זום
+    $("#fitBtn").addEventListener("click", fitToScreen);
+    $("#zoomIn").addEventListener("click", function () { setZoom(state.zoom + 0.1); });
+    $("#zoomOut").addEventListener("click", function () { setZoom(state.zoom - 0.1); });
 
     $("#exportBtn").addEventListener("click", exportJSON);
     $("#importBtn").addEventListener("click", function () { $("#importFile").click(); });
@@ -486,12 +524,15 @@
                   n: "note", a: "arrow", l: "line", r: "region", v: "select" };
       if (e.key === "Escape") { setTool("select"); }
       else if (map[e.key]) { setTool(map[e.key]); }
+      else if (e.key === "+" || e.key === "=") { setZoom(state.zoom + 0.1); }
+      else if (e.key === "-") { setZoom(state.zoom - 0.1); }
+      else if (e.key === "0") { fitToScreen(); }
     });
 
     // שמירה במקרה של סגירה
     window.addEventListener("beforeunload", persist);
-    // רינדור מחדש בשינוי גודל חלון (כי הכל יחסי)
-    var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(renderAll, 120); });
+    // התאמה מחדש בשינוי גודל חלון (כי הכל יחסי)
+    var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { applyLayout(); renderAll(); }, 120); });
   }
 
   // ============================================================
@@ -501,12 +542,12 @@
     loadLocal();
     wireToolbar();
     setTool("select");
-    setFrameHeight(parseInt($("#frameH").value, 10) || 3200);
 
     var startUrl = state.catalogUrl || $("#urlInput").value.trim();
     $("#urlInput").value = startUrl;
     if (startUrl) loadCatalog(startUrl);
 
+    fitToScreen();                 // מתחיל בתצוגה שמראה את כל רוחב הקטלוג
     loadRepoFeedback().then(renderAll);
     renderAll();
   }

@@ -49,8 +49,11 @@
     .pill { font-size: 12px; opacity: .8; }
 
     /* ===== אזור הקטלוג + שכבת ההערות ===== */
-    #stage { position: relative; margin: 0 auto; width: 100%; max-width: 1280px; }
-    #frameWrap { position: relative; width: 100%; background: #fff; box-shadow: var(--shadow); }
+    #stage { position: relative; width: 100%; display: flex; justify-content: center; padding: 12px 0 80px; }
+    /* clip חותך את הקטלוג המוקטן כך שאין רווח לבן ענק מתחת */
+    #clip { position: relative; overflow: hidden; background: #fff; box-shadow: var(--shadow); }
+    /* frameWrap מצויר ברוחב דסקטופ מלא ואז מוקטן ב-transform כדי שהכול ייכנס למסך */
+    #frameWrap { position: relative; transform-origin: top left; background: #fff; }
     #catalog { width: 100%; height: 100%; border: 0; display: block; }
     #overlay { position: absolute; inset: 0; }
     #overlay.tool-active { cursor: crosshair; }
@@ -142,8 +145,16 @@
     </div>
 
     <div class="group">
-      <span class="pill">גובה תצוגה:</span>
-      <input type="number" id="frameH" value="3200" step="200" min="600" title="גובה הקטלוג בפיקסלים — כוונן כדי שכל העמוד ייכנס" />
+      <span class="pill">תצוגה:</span>
+      <button class="btn" id="fitBtn" title="התאם את כל רוחב הקטלוג למסך">⤢ התאם למסך</button>
+      <button class="btn ghost" id="zoomOut" title="הקטן">−</button>
+      <span class="pill" id="zoomLabel">100%</span>
+      <button class="btn ghost" id="zoomIn" title="הגדל">+</button>
+    </div>
+
+    <div class="group">
+      <span class="pill">גובה:</span>
+      <input type="number" id="frameH" value="5200" step="200" min="600" title="גובה הקטלוג בפיקסלים — כוונן כדי שכל העמוד ייכנס" />
     </div>
 
     <div class="group">
@@ -155,10 +166,12 @@
   </div>
 
   <div id="stage">
-    <div id="frameWrap">
-      <iframe id="catalog" referrerpolicy="no-referrer"></iframe>
-      <div id="overlay" class="passthrough">
-        <svg id="wires"></svg>
+    <div id="clip">
+      <div id="frameWrap">
+        <iframe id="catalog" referrerpolicy="no-referrer"></iframe>
+        <div id="overlay" class="passthrough">
+          <svg id="wires"></svg>
+        </div>
       </div>
     </div>
     <div id="empty" hidden></div>
